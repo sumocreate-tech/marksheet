@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="マークシート">
+<meta name="theme-color" content="#b0305a">
+<title>マークシート</title>
+<style>
+:root{
+  --accent:#b0305a;
+  --bg:#f6f1f3;
+  --paper:#ffffff;
+  --band:#fbf3f6;
+  --line:#e2c4d0;
+  --ink:#1c1c1c;
+  --sub:#555555;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg);color:var(--ink);
+  font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","BIZ UDPGothic","Yu Gothic",sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+button{font-family:inherit;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:640px;margin:0 auto;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+.bar{
+  position:sticky;top:0;z-index:2;background:var(--paper);
+  border-bottom:2px solid var(--accent);
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.bar h1{margin:0;font-size:20px;letter-spacing:.06em;color:var(--accent)}
+.count{font-size:13px;color:#444;margin-top:2px}
+.reset{
+  min-height:44px;padding:0 18px;border-radius:22px;
+  border:1.5px solid var(--accent);background:var(--paper);color:var(--accent);
+  font-size:14px;font-weight:700;cursor:pointer;
+}
+.reset:active{background:var(--band)}
+.hint{padding:8px 14px 4px;font-size:12px;color:var(--sub)}
+.sheet{margin:4px 8px 0;background:var(--paper);border:1.5px solid var(--accent);border-radius:8px;overflow:hidden}
+.row{display:flex;align-items:stretch;min-height:54px;border-top:1px solid var(--line)}
+.row:first-child{border-top:none}
+.row.five{border-top-color:var(--accent)}
+.row.band{background:var(--band)}
+.kana{
+  width:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:19px;font-weight:700;color:var(--accent);border-right:1.5px solid var(--accent);
+}
+.cells{flex:1;min-width:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));padding:0 2px}
+.cell{
+  min-height:54px;padding:0;border:none;background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.dot{
+  display:inline-block;width:24px;height:34px;border-radius:50%;
+  border:1px solid var(--accent);color:var(--accent);
+  font-size:14px;line-height:32px;text-align:center;transition:background .08s;
+}
+.cell[aria-pressed="true"] .dot{background:var(--ink);border-color:var(--ink);color:var(--ink)}
+@media (min-width:600px){
+  .dot{width:28px;height:38px;line-height:36px;font-size:15px}
+  .row,.cell{min-height:60px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <div>
+      <h1>解答用紙</h1>
+      <div class="count">マーク済み <span id="count">0</span> / 46</div>
+    </div>
+    <button type="button" class="reset" id="reset">全部消す</button>
+  </div>
+  <div class="hint">マークをタップで塗る・もう一度タップで消す（答えはこの端末に自動保存）</div>
+  <div class="sheet" id="sheet"></div>
+</div>
+<script>
+(function(){
+  var KANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン'.split('');
+  var KEY = 'marksheet-answers-v1';
+  var answers = {};
+  try { answers = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e) { answers = {}; }
+
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(answers)); } catch(e) {} }
+
+  var sheet = document.getElementById('sheet');
+  var countEl = document.getElementById('count');
+
+  KANA.forEach(function(k, i){
+    var row = document.createElement('div');
+    row.className = 'row' + (i % 5 === 0 && i > 0 ? ' five' : '') + (Math.floor(i / 5) % 2 === 1 ? ' band' : '');
+    var label = document.createElement('div');
+    label.className = 'kana';
+    label.textContent = k;
+    row.appendChild(label);
+    var cells = document.createElement('div');
+    cells.className = 'cells';
+    for (var d = 0; d <= 9; d++) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'cell';
+      b.dataset.k = k;
+      b.dataset.d = String(d);
+      b.setAttribute('aria-label', k + ' ' + d);
+      b.setAttribute('aria-pressed', answers[k] === String(d) ? 'true' : 'false');
+      var dot = document.createElement('span');
+      dot.className = 'dot';
+      dot.textContent = String(d);
+      b.appendChild(dot);
+      cells.appendChild(b);
+    }
+    row.appendChild(cells);
+    sheet.appendChild(row);
+  });
+
+  function refresh(){
+    var btns = sheet.querySelectorAll('.cell');
+    for (var i = 0; i < btns.length; i++) {
+      var b = btns[i];
+      b.setAttribute('aria-pressed', answers[b.dataset.k] === b.dataset.d ? 'true' : 'false');
+    }
+    countEl.textContent = Object.keys(answers).length;
+  }
+
+  sheet.addEventListener('click', function(e){
+    var b = e.target.closest('.cell');
+    if (!b) return;
+    var k = b.dataset.k, d = b.dataset.d;
+    if (answers[k] === d) { delete answers[k]; } else { answers[k] = d; }
+    save(); refresh();
+  });
+
+  document.getElementById('reset').addEventListener('click', function(){
+    if (Object.keys(answers).length === 0) return;
+    answers = {}; save(); refresh();
+  });
+
+  refresh();
+})();
+</script>
+</body>
+</html>
