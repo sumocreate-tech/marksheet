@@ -10,6 +10,12 @@
 <style>
 :root{
   --accent:#b0305a;
+  --key:#d7261e;
+  --key-bg:#ffffff;
+  --ok:#23703f;
+  --ok-bg:#ecf6ef;
+  --ng:#b3261e;
+  --ng-bg:#fcecea;
   --bg:#f6f1f3;
   --paper:#ffffff;
   --band:#fbf3f6;
@@ -26,30 +32,57 @@ body{
 }
 button{font-family:inherit;-webkit-tap-highlight-color:transparent}
 .wrap{max-width:640px;margin:0 auto;padding-bottom:calc(24px + env(safe-area-inset-bottom))}
+
 .bar{
   position:sticky;top:0;z-index:2;background:var(--paper);
   border-bottom:2px solid var(--accent);
-  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
-  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+  display:flex;flex-direction:column;gap:10px;
 }
+body.mode-key .bar{border-bottom-color:var(--key)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .bar h1{margin:0;font-size:20px;letter-spacing:.06em;color:var(--accent)}
 .count{font-size:13px;color:#444;margin-top:2px}
 .reset{
-  min-height:44px;padding:0 18px;border-radius:22px;
+  min-height:44px;padding:0 16px;border-radius:22px;flex-shrink:0;
   border:1.5px solid var(--accent);background:var(--paper);color:var(--accent);
   font-size:14px;font-weight:700;cursor:pointer;
 }
-.reset:active{background:var(--band)}
+body.mode-key .reset{border-color:var(--key);color:var(--key)}
+body.mode-result .reset{visibility:hidden}
+
+.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1.5px solid var(--accent);border-radius:10px;overflow:hidden}
+.tab{min-height:44px;border:none;background:var(--paper);color:var(--accent);font-size:15px;font-weight:700;cursor:pointer}
+.tab + .tab{border-left:1.5px solid var(--accent)}
+.tab[aria-selected="true"]{background:var(--accent);color:#fff}
+.tab.key[aria-selected="true"]{background:var(--key)}
+
 .hint{padding:8px 14px 4px;font-size:12px;color:var(--sub)}
+body.mode-key .hint{color:var(--key);font-weight:700}
+
+.score{
+  display:none;margin:6px 8px 4px;padding:14px 16px;background:var(--paper);
+  border:1.5px solid var(--accent);border-radius:8px;
+  align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+}
+body.mode-result .score{display:flex}
+.score .big{font-size:30px;font-weight:700;color:var(--accent);letter-spacing:.02em}
+.score .big small{font-size:16px;color:var(--ink);font-weight:400;margin-left:4px}
+.score .detail{font-size:13px;color:#444;line-height:1.6}
+.filter{display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;cursor:pointer}
+.filter input{width:22px;height:22px;accent-color:var(--accent);margin:0}
+
 .sheet{margin:4px 8px 0;background:var(--paper);border:1.5px solid var(--accent);border-radius:8px;overflow:hidden}
+body.mode-key .sheet{border-color:var(--key)}
 .row{display:flex;align-items:stretch;min-height:54px;border-top:1px solid var(--line)}
 .row:first-child{border-top:none}
 .row.five{border-top-color:var(--accent)}
 .row.band{background:var(--band)}
 .kana{
-  width:44px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  width:44px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
   font-size:19px;font-weight:700;color:var(--accent);border-right:1.5px solid var(--accent);
 }
+.mark{font-size:13px;line-height:1;display:none}
 .cells{flex:1;min-width:0;display:grid;grid-template-columns:repeat(10,minmax(0,1fr));padding:0 2px}
 .cell{
   min-height:54px;padding:0;border:none;background:transparent;cursor:pointer;
@@ -61,42 +94,84 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
   font-size:14px;line-height:32px;text-align:center;transition:background .08s;
 }
 .cell[aria-pressed="true"] .dot{background:var(--ink);border-color:var(--ink);color:var(--ink)}
+body.mode-key .cell[aria-pressed="true"] .dot{background:var(--key);border-color:var(--key);color:var(--key)}
+
+/* 採点モード */
+body.mode-result .cell{cursor:default}
+body.mode-result .row.ok{background:var(--ok-bg)}
+body.mode-result .row.ng{background:var(--ng-bg)}
+body.mode-result .row.none{opacity:.45}
+body.mode-result .row .mark{display:block}
+body.mode-result .row.ok .mark{color:var(--ok)}
+body.mode-result .row.ng .mark{color:var(--ng)}
+body.mode-result .dot.correct{border:3px solid var(--key);background:var(--key-bg);color:var(--key);font-weight:700;line-height:28px}
+body.mode-result.only-ng .row:not(.ng){display:none}
+.empty{display:none;padding:28px 16px;text-align:center;font-size:14px;color:var(--sub)}
+
 @media (min-width:600px){
   .dot{width:28px;height:38px;line-height:36px;font-size:15px}
+  body.mode-result .dot.correct{line-height:32px}
   .row,.cell{min-height:60px}
 }
 </style>
 </head>
-<body>
+<body class="mode-answer">
 <div class="wrap">
   <div class="bar">
-    <div>
-      <h1>解答用紙</h1>
-      <div class="count">マーク済み <span id="count">0</span> / 46</div>
+    <div class="top">
+      <div>
+        <h1>解答用紙</h1>
+        <div class="count" id="count"></div>
+      </div>
+      <button type="button" class="reset" id="reset">全部消す</button>
     </div>
-    <button type="button" class="reset" id="reset">全部消す</button>
+    <div class="tabs" role="tablist">
+      <button type="button" class="tab" role="tab" data-mode="answer">解答</button>
+      <button type="button" class="tab key" role="tab" data-mode="key">正解入力</button>
+      <button type="button" class="tab" role="tab" data-mode="result">採点</button>
+    </div>
   </div>
-  <div class="hint">マークをタップで塗る・もう一度タップで消す（答えはこの端末に自動保存）</div>
+  <div class="hint" id="hint"></div>
+  <div class="score" id="score">
+    <div>
+      <div class="big" id="scoreBig"></div>
+      <div class="detail" id="scoreDetail"></div>
+    </div>
+    <label class="filter"><input type="checkbox" id="onlyNg">×だけ表示</label>
+  </div>
   <div class="sheet" id="sheet"></div>
+  <div class="empty" id="empty"></div>
 </div>
 <script>
 (function(){
   var KANA = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン'.split('');
-  var KEY = 'marksheet-answers-v1';
-  var answers = {};
-  try { answers = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e) { answers = {}; }
+  var STORE = { answer: 'marksheet-answers-v1', key: 'marksheet-key-v1' };
+  var HINTS = {
+    answer: 'マークをタップで塗る・もう一度タップで消す（自動保存）',
+    key: '正解を入力中：正解の数字をタップ（正解を入れた問題だけ採点されるよ）',
+    result: ''
+  };
 
-  function save(){ try { localStorage.setItem(KEY, JSON.stringify(answers)); } catch(e) {} }
+  function load(k){ try { return JSON.parse(localStorage.getItem(STORE[k]) || '{}') || {}; } catch(e) { return {}; } }
+  function save(k){ try { localStorage.setItem(STORE[k], JSON.stringify(data[k])); } catch(e) {} }
+  function loadMode(){ try { return localStorage.getItem('marksheet-mode-v1') || 'answer'; } catch(e) { return 'answer'; } }
+  function saveMode(){ try { localStorage.setItem('marksheet-mode-v1', mode); } catch(e) {} }
+
+  var data = { answer: load('answer'), key: load('key') };
+  var mode = loadMode();
+  if (!/^(answer|key|result)$/.test(mode)) mode = 'answer';
 
   var sheet = document.getElementById('sheet');
-  var countEl = document.getElementById('count');
+  var rows = {};
 
   KANA.forEach(function(k, i){
     var row = document.createElement('div');
     row.className = 'row' + (i % 5 === 0 && i > 0 ? ' five' : '') + (Math.floor(i / 5) % 2 === 1 ? ' band' : '');
     var label = document.createElement('div');
     label.className = 'kana';
-    label.textContent = k;
+    var kt = document.createElement('span'); kt.textContent = k;
+    var mk = document.createElement('span'); mk.className = 'mark';
+    label.appendChild(kt); label.appendChild(mk);
     row.appendChild(label);
     var cells = document.createElement('div');
     cells.className = 'cells';
@@ -107,7 +182,6 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
       b.dataset.k = k;
       b.dataset.d = String(d);
       b.setAttribute('aria-label', k + ' ' + d);
-      b.setAttribute('aria-pressed', answers[k] === String(d) ? 'true' : 'false');
       var dot = document.createElement('span');
       dot.className = 'dot';
       dot.textContent = String(d);
@@ -116,28 +190,98 @@ button{font-family:inherit;-webkit-tap-highlight-color:transparent}
     }
     row.appendChild(cells);
     sheet.appendChild(row);
+    rows[k] = { el: row, mark: mk };
   });
 
   function refresh(){
+    document.body.classList.remove('mode-answer','mode-key','mode-result');
+    document.body.classList.add('mode-' + mode);
+    document.body.classList.toggle('only-ng', mode === 'result' && document.getElementById('onlyNg').checked);
+
+    var tabs = document.querySelectorAll('.tab');
+    for (var t = 0; t < tabs.length; t++) tabs[t].setAttribute('aria-selected', tabs[t].dataset.mode === mode ? 'true' : 'false');
+
+    var ans = data.answer, key = data.key;
+    var shown = mode === 'key' ? key : ans;
+
     var btns = sheet.querySelectorAll('.cell');
     for (var i = 0; i < btns.length; i++) {
-      var b = btns[i];
-      b.setAttribute('aria-pressed', answers[b.dataset.k] === b.dataset.d ? 'true' : 'false');
+      var b = btns[i], k = b.dataset.k, d = b.dataset.d;
+      b.setAttribute('aria-pressed', shown[k] === d ? 'true' : 'false');
+      b.disabled = mode === 'result';
+      var isCorrectHint = mode === 'result' && key[k] === d && ans[k] !== d;
+      b.firstChild.classList.toggle('correct', isCorrectHint);
     }
-    countEl.textContent = Object.keys(answers).length;
+
+    var total = 0, ok = 0, ng = 0, blank = 0;
+    KANA.forEach(function(k){
+      var r = rows[k];
+      r.el.classList.remove('ok','ng','none');
+      r.mark.textContent = '';
+      if (key[k] === undefined) { r.el.classList.add('none'); return; }
+      total++;
+      if (ans[k] === key[k]) { ok++; r.el.classList.add('ok'); r.mark.textContent = '○'; }
+      else { ng++; if (ans[k] === undefined) blank++; r.el.classList.add('ng'); r.mark.textContent = '×'; }
+    });
+
+    var countEl = document.getElementById('count');
+    if (mode === 'key') countEl.textContent = '正解を入力済み ' + Object.keys(key).length + ' / 46';
+    else countEl.textContent = 'マーク済み ' + Object.keys(ans).length + ' / 46';
+
+    document.getElementById('hint').textContent = HINTS[mode];
+
+    var empty = document.getElementById('empty');
+    if (mode === 'result') {
+      if (total === 0) {
+        document.getElementById('score').style.display = 'none';
+        sheet.style.display = 'none';
+        empty.style.display = 'block';
+        empty.textContent = 'まだ正解が入ってないよ。「正解入力」で正解をマークしてから採点してね。';
+      } else {
+        document.getElementById('score').style.display = '';
+        sheet.style.display = '';
+        empty.style.display = 'none';
+        var pct = Math.round(ok / total * 100);
+        document.getElementById('scoreBig').innerHTML = ok + '<small>/ ' + total + '問</small>';
+        document.getElementById('scoreDetail').textContent =
+          '正答率 ' + pct + '%　×' + ng + '（うち無回答 ' + blank + '）　赤い丸が正解';
+        if (document.getElementById('onlyNg').checked && ng === 0) {
+          empty.style.display = 'block';
+          empty.textContent = '全問正解！';
+        }
+      }
+    } else {
+      document.getElementById('score').style.display = '';
+      sheet.style.display = '';
+      empty.style.display = 'none';
+    }
   }
 
   sheet.addEventListener('click', function(e){
+    if (mode === 'result') return;
     var b = e.target.closest('.cell');
     if (!b) return;
-    var k = b.dataset.k, d = b.dataset.d;
-    if (answers[k] === d) { delete answers[k]; } else { answers[k] = d; }
-    save(); refresh();
+    var k = b.dataset.k, d = b.dataset.d, set = data[mode];
+    if (set[k] === d) { delete set[k]; } else { set[k] = d; }
+    save(mode); refresh();
   });
 
+  document.querySelector('.tabs').addEventListener('click', function(e){
+    var t = e.target.closest('.tab');
+    if (!t) return;
+    mode = t.dataset.mode; saveMode(); refresh();
+    window.scrollTo(0, 0);
+  });
+
+  document.getElementById('onlyNg').addEventListener('change', refresh);
+
   document.getElementById('reset').addEventListener('click', function(){
-    if (Object.keys(answers).length === 0) return;
-    answers = {}; save(); refresh();
+    if (mode === 'result') return;
+    var set = data[mode];
+    if (Object.keys(set).length === 0) return;
+    var msg = mode === 'key' ? '入力した正解を全部消す？' : '自分の解答を全部消す？';
+    if (!window.confirm(msg)) return;
+    data[mode] = {}; save(mode); refresh();
   });
 
   refresh();
