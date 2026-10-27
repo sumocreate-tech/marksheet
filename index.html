@@ -50,6 +50,7 @@ body.mode-key .bar{border-bottom-color:var(--key)}
 }
 body.mode-key .reset{border-color:var(--key);color:var(--key)}
 body.mode-result .reset{visibility:hidden}
+.reset.armed,body.mode-key .reset.armed{background:var(--key);border-color:var(--key);color:#fff}
 
 .tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1.5px solid var(--accent);border-radius:10px;overflow:hidden}
 .tab{min-height:44px;border:none;background:var(--paper);color:var(--accent);font-size:15px;font-weight:700;cursor:pointer}
@@ -275,14 +276,27 @@ body.mode-result.only-ng .row:not(.ng){display:none}
 
   document.getElementById('onlyNg').addEventListener('change', refresh);
 
-  document.getElementById('reset').addEventListener('click', function(){
+  var resetBtn = document.getElementById('reset');
+  var armed = false, armTimer = null;
+  function disarm(){
+    armed = false; clearTimeout(armTimer);
+    resetBtn.textContent = '全部消す';
+    resetBtn.classList.remove('armed');
+  }
+  resetBtn.addEventListener('click', function(){
     if (mode === 'result') return;
-    var set = data[mode];
-    if (Object.keys(set).length === 0) return;
-    var msg = mode === 'key' ? '入力した正解を全部消す？' : '自分の解答を全部消す？';
-    if (!window.confirm(msg)) return;
+    if (Object.keys(data[mode]).length === 0) return;
+    if (!armed) {
+      armed = true;
+      resetBtn.textContent = 'もう一回押すと消える';
+      resetBtn.classList.add('armed');
+      armTimer = setTimeout(disarm, 3000);
+      return;
+    }
+    disarm();
     data[mode] = {}; save(mode); refresh();
   });
+  document.querySelector('.tabs').addEventListener('click', disarm);
 
   refresh();
 })();
